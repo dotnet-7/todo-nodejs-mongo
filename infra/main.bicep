@@ -210,8 +210,6 @@ module apimApi './app/apim-api.bicep' = if (useAPIM) {
   }
 }
 
-
-
 // Data outputs
 output AZURE_COSMOS_CONNECTION_STRING_KEY string = cosmos.outputs.connectionStringKey
 output AZURE_COSMOS_DATABASE_NAME string = cosmos.outputs.databaseName
