@@ -54,23 +54,18 @@ module web 'br/public:avm/res/web/site:0.2.0' = {
     location: location
     appInsightResourceId: resourceId(subscription().subscriptionId, rg.name, 'Microsoft.insights/components', monitoring.outputs.applicationInsightsName)
     siteConfig: {
-      linuxFxVersion: 'node|18-lts'
+      windowsFxVersion: 'node|18-lts'
       appCommandLine: './entrypoint.sh -o ./env-config.js && pm2 serve /home/site/wwwroot --no-daemon --spa'
-      alwaysOn: true
     }
   }
 }
 
-// Set environment variables for the frontend
-module webAppSettings 'br/public:avm/res/web/site:0.2.0' = {
-  scope: rg
+module webAppSettings './core/host/appservice-appsettings.bicep' = {
   name: 'web-appsettings'
+  scope: rg
   params: {
-    kind: 'app'
     name: web.outputs.name
-    serverFarmResourceId: appServicePlan.outputs.resourceId
-    tags: union(tags, { 'azd-service-name': 'web' })
-    appSettingsKeyValuePairs: {
+    appSettings: {
       REACT_APP_API_BASE_URL: 'https://${api.outputs.defaultHostname}'
       REACT_APP_APPLICATIONINSIGHTS_CONNECTION_STRING: monitoring.outputs.applicationInsightsConnectionString
     }
@@ -108,6 +103,16 @@ module api 'br/public:avm/res/web/site:0.2.0' = {
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'True'
       ENABLE_ORYX_BUILD: 'True'
     }
+  }
+}
+
+// Give the API access to KeyVault
+module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
+  name: 'api-keyvault-access'
+  scope: rg
+  params: {
+    keyVaultName: keyVault.outputs.name
+    principalId: api.outputs.systemAssignedMIPrincipalId
   }
 }
 
@@ -153,26 +158,9 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.3.5' = {
     location: location
     tags: tags
     enableRbacAuthorization: false
-  }
-}
-
-// Give the API access to KeyVault
-module apiKeyVaultAccess 'br/public:avm/res/key-vault/vault:0.3.5' = {
-  name: 'api-keyvault-access'
-  scope: rg
-  params: {
-    name: keyVault.outputs.name
-    enableRbacAuthorization: false
-    tags: tags
     accessPolicies: [
       {
         objectId: principalId
-        permissions: {
-          secrets: [ 'get', 'list' ]
-        }
-      }
-      {
-        objectId: api.outputs.systemAssignedMIPrincipalId
         permissions: {
           secrets: [ 'get', 'list' ]
         }
